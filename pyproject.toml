@@ -1,7 +1,7 @@
 [project]
 name = "eod-market-pipeline"
 version = "0.1.0"
-description = "Add your description here"
+description = "End-of-day market data pipeline for Polygon.io ingestion, validation, and feature generation."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
