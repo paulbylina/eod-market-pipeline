@@ -1,0 +1,10 @@
+import os
+from dotenv import load_dotenv
+
+
+def test_fred_api_key_exists() -> None:
+    load_dotenv()
+    api_key = os.getenv("FRED_API_KEY")
+
+    assert api_key is not None
+    assert api_key != ""
