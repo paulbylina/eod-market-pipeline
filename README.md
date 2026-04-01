@@ -109,6 +109,12 @@ uv sync
 ```text
 MASSIVE_API_KEY=your_api_key_here
 ```
+or
+
+```bash
+cp .env.example .env
+```
+
 ## Running the Pipeline
 Example:
 ```bash

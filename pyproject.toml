@@ -25,3 +25,7 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "fred: tests for the FRED API",
+    "massive: tests for the MASSIVE API",
+]

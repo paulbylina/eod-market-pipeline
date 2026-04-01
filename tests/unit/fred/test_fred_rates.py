@@ -1,9 +1,9 @@
 import os
-
+import pytest
 from dotenv import load_dotenv
 from fredapi import Fred
 
-
+@pytest.mark.fred
 def test_can_fetch_us_rate_series() -> None:
     load_dotenv()
 
