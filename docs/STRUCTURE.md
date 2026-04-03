@@ -1,6 +1,6 @@
 
 ```
-eod-market-pipeline/
+market-data-platform/
 ├── config/             # runtime settings, environments, symbols, pipeline parameters
 ├── data/               # local data lake for all pipeline outputs
 │   ├── raw/            # untouched data pulled from Polygon

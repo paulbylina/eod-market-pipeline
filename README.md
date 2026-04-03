@@ -1,4 +1,4 @@
-# eod-market-pipeline
+# market-data-platform
 
 Production-style end-of-day stock data pipeline using Massive, with ETL, validation, and z-score feature generation.
 
@@ -29,7 +29,7 @@ The current version focuses on:
 ## Project Structure
 
 ```text
-eod-market-pipeline/
+market-data-pkatform/
 ├── config/
 ├── data/
 │   ├── raw/
@@ -99,7 +99,7 @@ The current pipeline flow is:
 ## Local Setup
 **1. Clone the repo**
 ```bash
-git clone git@github.com:YOUR_GITHUB_USERNAME/eod-market-pipeline.git
+git clone git@github.com:PAULBYLINA/market-data-platform.git
 ```
 **2. Install dependencies**
 ```bash

@@ -87,7 +87,7 @@ wheels = [
 ]
 
 [[package]]
-name = "eod-market-pipeline"
+name = "market-data-platform"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
