@@ -1,0 +1,43 @@
+name: Daily Market Pipeline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 22 * * 1-5"
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    env:
+      MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Refresh relative volume master
+        run: uv run python -c "from src.pipelines.market.refresh_relative_volume_master import refresh_relative_volume_master; refresh_relative_volume_master()"
+
+      - name: Upload outputs to S3
+        run: aws s3 sync data/ s3://${S3_BUCKET}/market-data-platform/data/
