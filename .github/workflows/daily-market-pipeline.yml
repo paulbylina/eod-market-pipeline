@@ -40,4 +40,4 @@ jobs:
         run: uv run python -c "from src.pipelines.market.refresh_relative_volume_master import refresh_relative_volume_master; refresh_relative_volume_master()"
 
       - name: Upload outputs to S3
-        run: aws s3 sync data/ s3://${S3_BUCKET}/market-data-platform/data/
+        run: aws s3 sync data/ s3://${S3_BUCKET}/market-data-platform/data/ --delete
