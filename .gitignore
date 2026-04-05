@@ -11,4 +11,5 @@ data/raw/
 data/staging/
 data/curated/
 data/quality/
+data/serving/
 logs/
