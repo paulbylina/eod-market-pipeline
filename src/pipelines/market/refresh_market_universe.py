@@ -4,6 +4,8 @@ from pathlib import Path
 from src.pipelines.market.batch_market_timeframe_refresh import (
     run_batch_market_timeframe_refresh,
 )
+from src.pipelines.market.build_serving_dataset import build_serving_dataset
+from src.utils.path_builders import build_market_serving_output_path
 from src.utils.settings import CONFIG_DIR
 
 
@@ -13,11 +15,14 @@ def refresh_market_universe(
     daily_end_date: str | None = None,
     intraday_start_date: str | None = None,
     intraday_end_date: str | None = None,
-    daily_lookback_days: int = 2000, # Would like to get median/average datapoints for highest tf 1mo to 60 bars
-    intraday_lookback_days: int = 20, # Would like to get median/average datapoints for highest intra tf 60m to 60 bars
+    daily_lookback_days: int = 2000,
+    intraday_lookback_days: int = 20,
+    run_daily: bool = True,
+    run_intraday: bool = True,
+    build_daily_serving: bool = False,
 ) -> dict:
     """
-    Refresh the market-data universe across daily and intraday timeframe families.
+    Unified market-universe refresh entrypoint.
 
     Daily family:
       - source: 1d
@@ -27,10 +32,11 @@ def refresh_market_universe(
       - source: 1m
       - derived: 5m, 15m, 60m
 
-    Different lookback windows are used so intraday refreshes stay manageable.
+    Optional:
+      - build combined daily serving dataset after daily refresh
     """
     if symbols_file is None:
-        symbols_file = CONFIG_DIR / "symbols.txt"
+        symbols_file = CONFIG_DIR / "symbols_intraday_eligible.txt"
 
     today = date.today()
 
@@ -53,28 +59,56 @@ def refresh_market_universe(
     print(f"  Symbols file: {symbols_file}")
     print(f"  Daily window: {daily_start_date} -> {daily_end_date}")
     print(f"  Intraday window: {intraday_start_date} -> {intraday_end_date}")
+    print(f"  Run daily: {run_daily}")
+    print(f"  Run intraday: {run_intraday}")
+    print(f"  Build daily serving: {build_daily_serving}")
 
-    # 1 - Runs 1D sourced data first
-    daily_summary = run_batch_market_timeframe_refresh(
-        symbols_file=symbols_file,
-        start_date=daily_start_date,
-        end_date=daily_end_date,
-        source_timeframes=("1d",),
-        derived_timeframes=("1w", "1mo"),
-    )
-    # 2 - Runs 1m sourced data second
-    intraday_summary = run_batch_market_timeframe_refresh(
-        symbols_file=symbols_file,
-        start_date=intraday_start_date,
-        end_date=intraday_end_date,
-        source_timeframes=("1m",),
-        derived_timeframes=("5m", "15m", "60m"),
-    )
+    daily_summary = {
+        "success_count": 0,
+        "failure_count": 0,
+        "skipped_count": 0,
+    }
+    intraday_summary = {
+        "success_count": 0,
+        "failure_count": 0,
+        "skipped_count": 0,
+    }
+    serving_output_path: str | None = None
+ 
+    if run_daily:
+        daily_summary = run_batch_market_timeframe_refresh(
+            symbols_file=symbols_file,
+            start_date=daily_start_date,
+            end_date=daily_end_date,
+            source_timeframes=("1d",),
+            derived_timeframes=("1w", "1mo"),
+        )
+
+        if build_daily_serving:
+            output_path = build_market_serving_output_path()
+            build_serving_dataset(
+                symbols_file=symbols_file,
+                start_date=daily_start_date,
+                end_date=daily_end_date,
+                output_path=output_path,
+            )
+            serving_output_path = str(output_path)
+            print(f"  Daily serving dataset written to {output_path}")
+
+    if run_intraday:
+        intraday_summary = run_batch_market_timeframe_refresh(
+            symbols_file=symbols_file,
+            start_date=intraday_start_date,
+            end_date=intraday_end_date,
+            source_timeframes=("1m",),
+            derived_timeframes=("5m", "15m", "60m"),
+        )
 
     combined_summary = {
         "symbols_file": str(symbols_file),
         "daily": daily_summary,
         "intraday": intraday_summary,
+        "serving_output_path": serving_output_path,
         "total_success_count": (
             daily_summary["success_count"] + intraday_summary["success_count"]
         ),

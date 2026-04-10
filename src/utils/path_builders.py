@@ -103,6 +103,6 @@ def build_market_validation_summary_output_path(
     )
 
 
-# RELATIVE VOLUME MASTER FILE
-def build_relative_volume_serving_output_path() -> Path:
-    return SERVING_DATA_DIR / "relative_volume_master.parquet"
+# MARKET SERVING MASTER FILE
+def build_market_serving_output_path() -> Path:
+    return SERVING_DATA_DIR / "market_universe_master.parquet"

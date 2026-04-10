@@ -2,8 +2,9 @@ name: Market Universe Refresh
 
 on:
   workflow_dispatch:
-#   schedule:
-#     - cron: "15 23 * * 1-5"
+  schedule:
+    - cron: "15 22 * * 1-5"
+      timezone: "America/Chicago"
 
 jobs:
   run-market-universe-refresh:
@@ -40,7 +41,16 @@ jobs:
         run: >
           uv run python -c
           "from src.pipelines.market.refresh_market_universe import refresh_market_universe;
-          refresh_market_universe(daily_lookback_days=60, intraday_lookback_days=5)"
+          refresh_market_universe(
+            run_daily=True,
+            run_intraday=False,
+            build_daily_serving=True
+          )"
 
-      - name: Upload outputs to S3
-        run: aws s3 sync data/ s3://${S3_BUCKET}/market-data-platform/data/
+      - name: Upload daily outputs to S3
+        run: |
+          aws s3 sync data/raw/massive/1d/ s3://${S3_BUCKET}/market-data-platform/data/raw/massive/1d/ --delete
+          aws s3 sync data/staging/market/1d/ s3://${S3_BUCKET}/market-data-platform/data/staging/market/1d/ --delete
+          aws s3 sync data/curated/market/1d/ s3://${S3_BUCKET}/market-data-platform/data/curated/market/1d/ --delete
+          aws s3 sync data/quality/market/1d/ s3://${S3_BUCKET}/market-data-platform/data/quality/market/1d/ --delete
+          aws s3 sync data/serving/ s3://${S3_BUCKET}/market-data-platform/data/serving/ --delete
