@@ -1,9 +1,6 @@
 import pandas as pd
 
-from src.aggregation.market import (
-    aggregate_daily_to_monthly,
-    aggregate_daily_to_weekly,
-)
+from src.aggregation.market import build_derived_bars
 from src.features.market import generate_bar_features
 from src.storage.write_data import write_dataframe_parquet
 from src.storage.write_quality_data import write_quality_dataframe
@@ -14,13 +11,8 @@ from src.utils.path_builders import (
     build_market_validation_summary_output_path,
     build_market_validation_warnings_output_path,
 )
+from src.utils.timeframes import get_derivation_spec
 from src.validation.market import validate_bars
-
-
-SUPPORTED_DERIVATIONS = {
-    ("1d", "1w"),
-    ("1d", "1mo"),
-}
 
 
 def run_derived_bars_pipeline(
@@ -32,19 +24,13 @@ def run_derived_bars_pipeline(
 ) -> None:
     """
     Build derived bars from an existing lower-granularity curated dataset.
-
-    Supported derivations:
-        1d -> 1w
-        1d -> 1mo
     """
-    derivation = (source_timeframe, target_timeframe)
-    if derivation not in SUPPORTED_DERIVATIONS:
-        supported = ", ".join(
-            f"{source}->{target}" for source, target in sorted(SUPPORTED_DERIVATIONS)
-        )
+    derivation_spec = get_derivation_spec(target_timeframe)
+
+    if source_timeframe != derivation_spec.source_timeframe:
         raise ValueError(
-            f"Unsupported derivation {source_timeframe}->{target_timeframe}. "
-            f"Supported derivations: {supported}"
+            f"Invalid derivation {source_timeframe}->{target_timeframe}. "
+            f"Expected {derivation_spec.source_timeframe}->{target_timeframe}"
         )
 
     source_path = build_market_curated_output_path(
@@ -62,12 +48,11 @@ def run_derived_bars_pipeline(
 
     source_df = pd.read_parquet(source_path)
 
-    if derivation == ("1d", "1w"):
-        aggregated_df = aggregate_daily_to_weekly(source_df)
-    elif derivation == ("1d", "1mo"):
-        aggregated_df = aggregate_daily_to_monthly(source_df)
-    else:
-        raise ValueError(f"No aggregation handler implemented for {derivation}")
+    aggregated_df = build_derived_bars(
+        source_df=source_df,
+        source_timeframe=source_timeframe,
+        target_timeframe=target_timeframe,
+    )
 
     valid_df, failures_df, warnings_df, summary_df = validate_bars(aggregated_df)
     featured_df = generate_bar_features(valid_df)

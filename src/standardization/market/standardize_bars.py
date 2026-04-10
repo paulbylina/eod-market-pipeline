@@ -3,13 +3,32 @@ from datetime import UTC, datetime
 import pandas as pd
 
 
+def _build_bar_end(bar_start_utc: pd.Series, timeframe: str) -> pd.Series:
+    if timeframe == "1m":
+        return bar_start_utc + pd.Timedelta(minutes=1)
+    if timeframe == "5m":
+        return bar_start_utc + pd.Timedelta(minutes=5)
+    if timeframe == "15m":
+        return bar_start_utc + pd.Timedelta(minutes=15)
+    if timeframe == "60m":
+        return bar_start_utc + pd.Timedelta(minutes=60)
+    if timeframe == "1d":
+        return bar_start_utc + pd.Timedelta(days=1)
+    if timeframe == "1w":
+        return bar_start_utc + pd.Timedelta(weeks=1)
+    if timeframe == "1mo":
+        return bar_start_utc + pd.DateOffset(months=1)
+
+    return bar_start_utc
+
+
 def standardize_bars(raw_response: dict, timeframe: str) -> pd.DataFrame:
     """
     Convert a raw Massive aggregates response into a standardized bar DataFrame.
 
-    This is the canonical bar schema for the platform. A legacy `date` column is
-    kept for compatibility with current daily consumers while the platform moves
-    toward timeframe-aware keys.
+    `bar_start` / `bar_end` are stored as UTC-based naive timestamps.
+    `session_date` is stored in America/New_York calendar terms so intraday bars
+    remain attached to the correct U.S. equity session date.
     """
     results = raw_response.get("results", [])
 
@@ -61,24 +80,24 @@ def standardize_bars(raw_response: dict, timeframe: str) -> pd.DataFrame:
         if column not in df.columns:
             df[column] = pd.NA
 
-    df["symbol"] = raw_response.get("ticker")
-    df["timeframe"] = timeframe
-
-    df["bar_start"] = pd.to_datetime(
+    bar_start_utc = pd.to_datetime(
         df["timestamp"],
         unit="ms",
         utc=True,
         errors="coerce",
-    ).dt.tz_localize(None)
+    )
 
-    if timeframe == "1d":
-        df["bar_end"] = df["bar_start"] + pd.Timedelta(days=1)
-    elif timeframe == "1w":
-        df["bar_end"] = df["bar_start"] + pd.Timedelta(weeks=1)
-    else:
-        df["bar_end"] = df["bar_start"]
+    df["symbol"] = raw_response.get("ticker")
+    df["timeframe"] = timeframe
+    df["bar_start"] = bar_start_utc.dt.tz_localize(None)
+    df["bar_end"] = _build_bar_end(df["bar_start"], timeframe)
 
-    df["session_date"] = df["bar_start"].dt.normalize()
+    df["session_date"] = (
+        bar_start_utc
+        .dt.tz_convert("America/New_York")
+        .dt.normalize()
+        .dt.tz_localize(None)
+    )
     df["date"] = df["session_date"]
 
     df["source"] = "massive"

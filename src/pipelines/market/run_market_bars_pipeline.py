@@ -1,5 +1,5 @@
 from src.features.market import generate_bar_features, generate_daily_features
-from src.ingestion.massive import fetch_bars
+from src.ingestion.massive import fetch_bars, fetch_minute_bars
 from src.standardization.market import standardize_bars
 from src.storage.write_data import write_dataframe_parquet, write_raw_json
 from src.storage.write_quality_data import write_quality_dataframe
@@ -24,12 +24,19 @@ def run_market_bars_pipeline(
     Run the end-to-end source-native bar pipeline for a single symbol, timeframe,
     and date range.
     """
-    raw_response = fetch_bars(
-        symbol=symbol,
-        timeframe=timeframe,
-        start_date=start_date,
-        end_date=end_date,
-    )
+    if timeframe == "1m":
+        raw_response = fetch_minute_bars(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    else:
+        raw_response = fetch_bars(
+            symbol=symbol,
+            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
     standardized_df = standardize_bars(
         raw_response=raw_response,

@@ -1,6 +1,7 @@
 import pandas as pd
 
 from src.pipelines.market.daily_eod_pipeline import run_daily_eod_pipeline
+from src.pipelines.market.minute_bars_pipeline import run_minute_bars_pipeline
 from src.pipelines.market.run_derived_bars_pipeline import run_derived_bars_pipeline
 from src.pipelines.market.run_market_timeframe_refresh import run_market_timeframe_refresh
 from src.utils.path_builders import (
@@ -33,6 +34,44 @@ def test_run_daily_eod_pipeline_writes_expected_outputs() -> None:
     assert failures_path.exists()
     assert warnings_path.exists()
     assert summary_path.exists()
+
+
+def test_run_minute_bars_pipeline_writes_expected_outputs() -> None:
+    symbol = "AAPL"
+    start_date = "2024-01-02"
+    end_date = "2024-01-02"
+
+    run_minute_bars_pipeline(symbol, start_date, end_date)
+
+    raw_path = build_massive_raw_output_path(symbol, start_date, end_date, timeframe="1m")
+    staging_path = build_market_staging_output_path(symbol, start_date, end_date, timeframe="1m")
+    curated_path = build_market_curated_output_path(symbol, start_date, end_date, timeframe="1m")
+    failures_path = build_market_validation_failures_output_path(symbol, start_date, end_date, timeframe="1m")
+    warnings_path = build_market_validation_warnings_output_path(symbol, start_date, end_date, timeframe="1m")
+    summary_path = build_market_validation_summary_output_path(symbol, start_date, end_date, timeframe="1m")
+
+    assert raw_path.exists()
+    assert staging_path.exists()
+    assert curated_path.exists()
+    assert failures_path.exists()
+    assert warnings_path.exists()
+    assert summary_path.exists()
+
+    minute_df = pd.read_parquet(curated_path)
+
+    assert not minute_df.empty
+    assert minute_df["timeframe"].eq("1m").all()
+    assert {
+        "symbol",
+        "bar_start",
+        "bar_end",
+        "session_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+    }.issubset(minute_df.columns)
 
 
 def test_run_derived_weekly_pipeline_writes_expected_outputs() -> None:
