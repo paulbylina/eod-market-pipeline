@@ -1,1 +1,2 @@
+from .validate_bars import validate_bars
 from .validate_daily_bars import validate_daily_bars

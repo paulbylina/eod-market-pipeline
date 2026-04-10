@@ -1,1 +1,2 @@
+from .standardize_bars import standardize_bars
 from .standardize_daily_bars import standardize_daily_bars

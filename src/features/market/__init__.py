@@ -1,1 +1,2 @@
+from .generate_bar_features import generate_bar_features
 from .generate_daily_features import generate_daily_features

@@ -1,20 +1,31 @@
+import pandas as pd
+
 from src.pipelines.market.daily_eod_pipeline import run_daily_eod_pipeline
-from src.utils.settings import CURATED_DATA_DIR, QUALITY_DATA_DIR, RAW_DATA_DIR, STAGING_DATA_DIR
+from src.pipelines.market.run_derived_bars_pipeline import run_derived_bars_pipeline
+from src.pipelines.market.run_market_timeframe_refresh import run_market_timeframe_refresh
+from src.utils.path_builders import (
+    build_market_curated_output_path,
+    build_market_staging_output_path,
+    build_market_validation_failures_output_path,
+    build_market_validation_summary_output_path,
+    build_market_validation_warnings_output_path,
+    build_massive_raw_output_path,
+)
 
 
 def test_run_daily_eod_pipeline_writes_expected_outputs() -> None:
     symbol = "AAPL"
-    start_date = "2023-10-01"
-    end_date = "2024-01-31"
+    start_date = "2024-01-02"
+    end_date = "2024-01-10"
 
     run_daily_eod_pipeline(symbol, start_date, end_date)
 
-    raw_path = RAW_DATA_DIR / f"{symbol}_{start_date}_{end_date}_raw.json"
-    staging_path = STAGING_DATA_DIR / f"{symbol}_{start_date}_{end_date}_staging.parquet"
-    curated_path = CURATED_DATA_DIR / f"{symbol}_{start_date}_{end_date}_curated.parquet"
-    failures_path = QUALITY_DATA_DIR / f"{symbol}_{start_date}_{end_date}_validation_failures.parquet"
-    warnings_path = QUALITY_DATA_DIR / f"{symbol}_{start_date}_{end_date}_validation_warnings.parquet"
-    summary_path = QUALITY_DATA_DIR / f"{symbol}_{start_date}_{end_date}_validation_summary.parquet"
+    raw_path = build_massive_raw_output_path(symbol, start_date, end_date, timeframe="1d")
+    staging_path = build_market_staging_output_path(symbol, start_date, end_date, timeframe="1d")
+    curated_path = build_market_curated_output_path(symbol, start_date, end_date, timeframe="1d")
+    failures_path = build_market_validation_failures_output_path(symbol, start_date, end_date, timeframe="1d")
+    warnings_path = build_market_validation_warnings_output_path(symbol, start_date, end_date, timeframe="1d")
+    summary_path = build_market_validation_summary_output_path(symbol, start_date, end_date, timeframe="1d")
 
     assert raw_path.exists()
     assert staging_path.exists()
@@ -22,3 +33,128 @@ def test_run_daily_eod_pipeline_writes_expected_outputs() -> None:
     assert failures_path.exists()
     assert warnings_path.exists()
     assert summary_path.exists()
+
+
+def test_run_derived_weekly_pipeline_writes_expected_outputs() -> None:
+    symbol = "AAPL"
+    start_date = "2024-01-01"
+    end_date = "2024-03-31"
+
+    run_daily_eod_pipeline(symbol, start_date, end_date)
+    run_derived_bars_pipeline(
+        symbol=symbol,
+        start_date=start_date,
+        end_date=end_date,
+        source_timeframe="1d",
+        target_timeframe="1w",
+    )
+
+    weekly_staging_path = build_market_staging_output_path(
+        symbol, start_date, end_date, timeframe="1w"
+    )
+    weekly_curated_path = build_market_curated_output_path(
+        symbol, start_date, end_date, timeframe="1w"
+    )
+    weekly_failures_path = build_market_validation_failures_output_path(
+        symbol, start_date, end_date, timeframe="1w"
+    )
+    weekly_warnings_path = build_market_validation_warnings_output_path(
+        symbol, start_date, end_date, timeframe="1w"
+    )
+    weekly_summary_path = build_market_validation_summary_output_path(
+        symbol, start_date, end_date, timeframe="1w"
+    )
+
+    assert weekly_staging_path.exists()
+    assert weekly_curated_path.exists()
+    assert weekly_failures_path.exists()
+    assert weekly_warnings_path.exists()
+    assert weekly_summary_path.exists()
+
+    daily_curated_path = build_market_curated_output_path(
+        symbol, start_date, end_date, timeframe="1d"
+    )
+
+    daily_df = pd.read_parquet(daily_curated_path)
+    weekly_df = pd.read_parquet(weekly_curated_path)
+
+    assert not daily_df.empty
+    assert not weekly_df.empty
+    assert len(weekly_df) < len(daily_df)
+    assert {
+        "symbol",
+        "timeframe",
+        "bar_start",
+        "bar_end",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+    }.issubset(weekly_df.columns)
+    assert weekly_df["timeframe"].eq("1w").all()
+
+
+def test_run_market_timeframe_refresh_writes_expected_monthly_outputs() -> None:
+    symbol = "AAPL"
+    start_date = "2024-01-01"
+    end_date = "2024-03-31"
+
+    run_market_timeframe_refresh(
+        symbol=symbol,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    daily_curated_path = build_market_curated_output_path(
+        symbol, start_date, end_date, timeframe="1d"
+    )
+    weekly_curated_path = build_market_curated_output_path(
+        symbol, start_date, end_date, timeframe="1w"
+    )
+    monthly_staging_path = build_market_staging_output_path(
+        symbol, start_date, end_date, timeframe="1mo"
+    )
+    monthly_curated_path = build_market_curated_output_path(
+        symbol, start_date, end_date, timeframe="1mo"
+    )
+    monthly_failures_path = build_market_validation_failures_output_path(
+        symbol, start_date, end_date, timeframe="1mo"
+    )
+    monthly_warnings_path = build_market_validation_warnings_output_path(
+        symbol, start_date, end_date, timeframe="1mo"
+    )
+    monthly_summary_path = build_market_validation_summary_output_path(
+        symbol, start_date, end_date, timeframe="1mo"
+    )
+
+    assert daily_curated_path.exists()
+    assert weekly_curated_path.exists()
+    assert monthly_staging_path.exists()
+    assert monthly_curated_path.exists()
+    assert monthly_failures_path.exists()
+    assert monthly_warnings_path.exists()
+    assert monthly_summary_path.exists()
+
+    daily_df = pd.read_parquet(daily_curated_path)
+    weekly_df = pd.read_parquet(weekly_curated_path)
+    monthly_df = pd.read_parquet(monthly_curated_path)
+
+    assert not daily_df.empty
+    assert not weekly_df.empty
+    assert not monthly_df.empty
+
+    assert len(monthly_df) < len(weekly_df) < len(daily_df)
+
+    assert {
+        "symbol",
+        "timeframe",
+        "bar_start",
+        "bar_end",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+    }.issubset(monthly_df.columns)
+    assert monthly_df["timeframe"].eq("1mo").all()
