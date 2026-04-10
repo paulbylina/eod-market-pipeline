@@ -9,7 +9,7 @@ from src.utils.settings import CONFIG_DIR
 def refresh_relative_volume_master(
     start_date: str | None = None,
     end_date: str | None = None,
-    lookback_days: int = 60,
+    lookback_days: int = 2000,
 ) -> None:
     if end_date is None:
         end_date = date.today().isoformat()
@@ -17,7 +17,7 @@ def refresh_relative_volume_master(
     if start_date is None:
         start_date = (date.today() - timedelta(days=lookback_days)).isoformat()
 
-    symbols_file = CONFIG_DIR / "symbols.txt"
+    symbols_file = CONFIG_DIR / "symbols_intraday_eligable.txt"
     output_path = build_relative_volume_serving_output_path()
 
     run_batch_daily_eod_pipeline(
