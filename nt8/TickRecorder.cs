@@ -1,107 +1,97 @@
 #region Using declarations
 using System;
+using System.Globalization;
 using System.IO;
 using NinjaTrader.Cbi;
 using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
 #endregion
 
-// This namespace holds Indicators in this folder and is required. Do not change it.
 namespace NinjaTrader.NinjaScript.Indicators
 {
-	public class TickRecorder : Indicator
-	{
-		private string outputPath;
+    public class TickRecorder : Indicator
+    {
+        private string outputPath;
 
-		protected override void OnStateChange()
-		{
-			if (State == State.SetDefaults)
-			{
-				Description					= "Records L1, L2, and trade events to a local CSV file.";
-				Name						= "TickRecorder";
-				Calculate					= Calculate.OnEachTick;
-				IsOverlay					= true;
-				DisplayInDataBox			= false;
-				DrawOnPricePanel			= true;
-				DrawHorizontalGridLines		= true;
-				DrawVerticalGridLines		= true;
-				PaintPriceMarkers			= false;
-				IsSuspendedWhileInactive	= false;
-			}
-			else if (State == State.DataLoaded)
-			{
-				string folder = Path.Combine(
-					Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-					"NinjaTrader 8",
-					"tick_recorder_logs"
-				);
+        protected override void OnStateChange()
+        {
+            if (State == State.SetDefaults)
+            {
+                Description = "Records raw NinjaTrader L1 Bid/Ask/Last events to CSV.";
+                Name = "Tick Recorder";
+                Calculate = Calculate.OnEachTick;
+                IsOverlay = true;
+                DisplayInDataBox = false;
+                DrawOnPricePanel = true;
+                DrawHorizontalGridLines = true;
+                DrawVerticalGridLines = true;
+                PaintPriceMarkers = false;
+                IsSuspendedWhileInactive = false;
+            }
+            else if (State == State.DataLoaded)
+            {
+                string workspaceRoot = @"C:\REPOSITORY\trading-dev-framework";
 
-				Directory.CreateDirectory(folder);
+                string instrumentFolder = SanitizePathPart(Instrument.FullName);
+                DateTime sessionStartUtc = DateTime.UtcNow;
+                TimeZoneInfo centralTz = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+                DateTime sessionStartCentral = TimeZoneInfo.ConvertTimeFromUtc(sessionStartUtc, centralTz);
 
-				outputPath = Path.Combine(
-					folder,
-					$"{Instrument.FullName}_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
-				);
+                string folder = Path.Combine(
+                    workspaceRoot,
+                    "ninja-lake",
+                    "raw",
+                    "ninjatrader",
+                    "L1",
+                    instrumentFolder,
+                    $"{sessionStartCentral:yyyy-MM-dd}"
+                );
 
-				WriteLine("ts,event_type,instrument,field_1,field_2,field_3,field_4,field_5");
-			}
-		}
+                Directory.CreateDirectory(folder);
 
-		protected override void OnBarUpdate()
-		{
-		}
-		
-		
-		// L1 Recorder
-		protected override void OnMarketData(MarketDataEventArgs e)
-		{
-			if (string.IsNullOrEmpty(outputPath))
-				return;
-		
-			string ts = DateTime.UtcNow.ToString("O");
-			string instrumentName = Instrument.FullName;
-		
-			if (e.MarketDataType == MarketDataType.Bid || e.MarketDataType == MarketDataType.Ask)
-			{
-				string side = e.MarketDataType.ToString();
-				string price = e.Price.ToString();
-				string size = e.Volume.ToString();
-		
-				WriteLine($"{ts},QUOTE,{instrumentName},{side},{price},{size},,");
-			}
-			else if (e.MarketDataType == MarketDataType.Last)
-			{
-				string price = e.Price.ToString();
-				string size = e.Volume.ToString();
-		
-				WriteLine($"{ts},TRADE,{instrumentName},LAST,{price},{size},,");
-			}
-		}
+                string fileName = $"session_{sessionStartCentral:HHmmss_fff}_CT.csv";
+                outputPath = Path.Combine(folder, fileName);
 
-		
-		// L2 Recorder
-		protected override void OnMarketDepth(MarketDepthEventArgs e)
-		{
-			if (string.IsNullOrEmpty(outputPath))
-				return;
-		
-			string ts = DateTime.UtcNow.ToString("O");
-			string eventType = "MARKET_DEPTH";
-			string instrumentName = Instrument.FullName;
-			string operation = e.Operation.ToString();
-			string side = e.MarketDataType.ToString();
-			string level = e.Position.ToString();
-			string price = e.Price.ToString();
-			string size = e.Volume.ToString();
-		
-			WriteLine($"{ts},{eventType},{instrumentName},{operation},{side},{level},{price},{size}");
-		}
+                WriteLine("ts_utc,instrument,market_data_type,price,size");
+            }
+        }
 
-		private void WriteLine(string line)
-		{
-			File.AppendAllText(outputPath, line + Environment.NewLine);
-		}
-	}
+        protected override void OnBarUpdate()
+        {
+        }
+
+        protected override void OnMarketData(MarketDataEventArgs e)
+        {
+            if (string.IsNullOrEmpty(outputPath))
+                return;
+
+            if (e.MarketDataType != MarketDataType.Bid &&
+                e.MarketDataType != MarketDataType.Ask &&
+                e.MarketDataType != MarketDataType.Last)
+                return;
+
+            string tsUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+            string instrumentName = Instrument.FullName;
+            string marketDataType = e.MarketDataType.ToString();
+            string price = e.Price.ToString(CultureInfo.InvariantCulture);
+            string size = e.Volume.ToString(CultureInfo.InvariantCulture);
+
+            WriteLine($"{tsUtc},{instrumentName},{marketDataType},{price},{size}");
+        }
+
+        private void WriteLine(string line)
+        {
+            File.AppendAllText(outputPath, line + Environment.NewLine);
+        }
+
+        private string SanitizePathPart(string value)
+        {
+            foreach (char c in Path.GetInvalidFileNameChars())
+                value = value.Replace(c, '_');
+
+            return value.Replace(' ', '_');
+        }
+    }
 }
 
 #region NinjaScript generated code. Neither change nor remove.
